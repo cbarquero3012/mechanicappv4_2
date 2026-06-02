@@ -64,4 +64,17 @@ export class RepairOrderPhotoService {
   deletePhoto(id: number): Observable<unknown> {
     return this.http.delete(`${this.apiUrl}/${id}`);
   }
+
+  /**
+   * Downloads a photo as a Blob from the authenticated backend endpoint.
+   * Uses HttpClient so the auth interceptor automatically attaches
+   * the JWT token and X-Tenant-Slug header.
+   *
+   * @param id - The photo record ID to download.
+   */
+  downloadPhoto(id: number): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/download/${id}`, {
+      responseType: 'blob',
+    });
+  }
 }
