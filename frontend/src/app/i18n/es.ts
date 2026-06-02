@@ -347,6 +347,12 @@ export const ES: Record<string, string> = {
   'orderDetail.uploadPhotos': 'Subir',
   'orderDetail.photoUploadError': 'Error al subir fotos. Intenta de nuevo.',
   'orderDetail.shareWhatsApp': 'Compartir por WhatsApp',
+  'orderDetail.photosNote': 'fotos adjuntas por separado',
+  'orderDetail.notes': 'Notas',
+  'orderDetail.initialNote': 'Nota Inicial',
+  'orderDetail.allowEditNote': 'Editar nota',
+  'orderDetail.addNote': 'Agregar nueva nota',
+  'orderDetail.newNotePlaceholder': 'Definir nueva nota...',
 
   // Invoice
   'invoice.title': 'Factura',
@@ -502,6 +508,7 @@ export const ES: Record<string, string> = {
 
   // Common – additional
   'common.uploading': 'Subiendo...',
+  'common.sharing': 'Compartiendo...',
   //'common.saving': 'Guardando...',
 
   // Navigation – Settings
