@@ -41,7 +41,7 @@ export class TranslationService {
   }
 
   private getSavedLang(): Lang {
-    const saved = localStorage.getItem(this.STORAGE_KEY) as Lang;
-    return saved === 'en' ? 'en' : 'es';
+    const saved = localStorage.getItem(this.STORAGE_KEY);
+    return saved === 'en' || saved === 'es' ? saved : 'es';
   }
 }
