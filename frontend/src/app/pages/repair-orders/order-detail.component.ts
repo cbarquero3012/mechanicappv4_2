@@ -82,6 +82,9 @@ import { markDirty } from '../../utils/mark-dirty';
               &#128172; {{ 'orderDetail.shareWhatsApp' | translate }}
             }
           </button>
+          @if (shareError) {
+            <span class="share-error">{{ shareError }}</span>
+          }
         </div>
         @if (orderErrorMsg) {
           <div class="error-message">{{ orderErrorMsg }}</div>
@@ -439,7 +442,7 @@ import { markDirty } from '../../utils/mark-dirty';
               <option [ngValue]="0">
                 -- {{ 'orderDetail.selectProduct' | translate }} --
               </option>
-              @for (pr of availableProducts; track pr) {
+              @for (pr of availableProducts; track pr.id) {
                 <option [ngValue]="pr.id">
                   {{ pr.name }} [{{ pr.quantity }}
                   {{ 'orderDetail.inStock' | translate }}]
@@ -494,7 +497,7 @@ import { markDirty } from '../../utils/mark-dirty';
                 </tr>
               </thead>
               <tbody>
-                @for (pr of orderProducts; track pr) {
+                @for (pr of orderProducts; track pr.id) {
                   <tr>
                     <td>{{ pr.productName }}</td>
                     <td>{{ pr.productSKU || '-' }}</td>
@@ -604,7 +607,7 @@ import { markDirty } from '../../utils/mark-dirty';
     }
   `,
   styles: [
-    '.order-summary { background: var(--card-bg, #f8f9fa); padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; } .summary-row { display: flex; gap: 24px; flex-wrap: wrap; align-items: center; } .total-badge { background: var(--primary, #0d6efd); color: #fff; padding: 4px 12px; border-radius: 4px; } .section-card { background: var(--card-bg, #fff); border: 1px solid var(--border, #dee2e6); border-radius: 8px; padding: 16px; margin-bottom: 20px; } .section-card h2 { margin: 0 0 12px; font-size: 1.1rem; } .add-line-form { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; } .add-line-form select { flex: 2; min-width: 200px; } .qty-input { width: 70px; } .price-input { width: 100px; } .btn-sm { padding: 6px 12px; font-size: 0.9rem; } .empty-hint { opacity: 0.6; font-style: italic; } .btn-whatsapp { background: #25D366; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.95rem; } .btn-whatsapp:hover { background: #1DA851; } .photo-upload-form { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; } .file-input { flex: 1; min-width: 200px; } .photo-list { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 4px; } .photo-list-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border, #dee2e6); border-radius: 6px; background: var(--card-bg, #fff); } .photo-name { flex: 1; font-size: 0.9rem; word-break: break-all; } .photo-desc { font-size: 0.85rem; opacity: 0.7; } .photo-list-item .btn-delete { margin-left: auto; flex-shrink: 0; }ff; border: none; font-size: 1.5rem; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; line-height: 1; } .note-block { margin-bottom: 4px; } .note-block-header { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; flex-wrap: wrap; } .note-label { font-weight: 600; font-size: 0.9rem; } .note-edit-toggle { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer; color: var(--primary, #0d6efd); } .note-text { background: var(--input-bg, #f8f9fa); border: 1px solid var(--border, #dee2e6); border-radius: 6px; padding: 10px 12px; white-space: pre-wrap; word-break: break-word; font-size: 0.9rem; min-height: 48px; } .note-locked-hint { font-size: 0.78rem; opacity: 0.55; margin: 6px 0 0; } .note-textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border, #dee2e6); border-radius: 6px; font-size: 0.9rem; resize: vertical; background: var(--input-bg, #fff); } .note-append-block { margin-top: 16px; border-top: 1px solid var(--border, #dee2e6); padding-top: 14px; display: flex; flex-direction: column; gap: 8px; }',
+    '.order-summary { background: var(--card-bg, #f8f9fa); padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; } .summary-row { display: flex; gap: 24px; flex-wrap: wrap; align-items: center; } .total-badge { background: var(--primary, #0d6efd); color: #fff; padding: 4px 12px; border-radius: 4px; } .section-card { background: var(--card-bg, #fff); border: 1px solid var(--border, #dee2e6); border-radius: 8px; padding: 16px; margin-bottom: 20px; } .section-card h2 { margin: 0 0 12px; font-size: 1.1rem; } .add-line-form { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; } .add-line-form select { flex: 2; min-width: 200px; } .qty-input { width: 70px; } .price-input { width: 100px; } .btn-sm { padding: 6px 12px; font-size: 0.9rem; } .empty-hint { opacity: 0.6; font-style: italic; } .btn-whatsapp { background: #25D366; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.95rem; } .btn-whatsapp:hover:not(:disabled) { background: #1DA851; } .btn-whatsapp:disabled { opacity: 0.6; cursor: not-allowed; } .share-error { color: var(--danger, #dc3545); font-size: 0.85rem; margin-left: 8px; } .photo-upload-form { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; } .file-input { flex: 1; min-width: 200px; } .photo-list { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 4px; } .photo-list-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border, #dee2e6); border-radius: 6px; background: var(--card-bg, #fff); } .photo-name { flex: 1; font-size: 0.9rem; word-break: break-all; } .photo-desc { font-size: 0.85rem; opacity: 0.7; } .photo-list-item .btn-delete { margin-left: auto; flex-shrink: 0; }ff; border: none; font-size: 1.5rem; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; line-height: 1; } .note-block { margin-bottom: 4px; } .note-block-header { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; flex-wrap: wrap; } .note-label { font-weight: 600; font-size: 0.9rem; } .note-edit-toggle { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer; color: var(--primary, #0d6efd); } .note-text { background: var(--input-bg, #f8f9fa); border: 1px solid var(--border, #dee2e6); border-radius: 6px; padding: 10px 12px; white-space: pre-wrap; word-break: break-word; font-size: 0.9rem; min-height: 48px; } .note-locked-hint { font-size: 0.78rem; opacity: 0.55; margin: 6px 0 0; } .note-textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border, #dee2e6); border-radius: 6px; font-size: 0.9rem; resize: vertical; background: var(--input-bg, #fff); } .note-append-block { margin-top: 16px; border-top: 1px solid var(--border, #dee2e6); padding-top: 14px; display: flex; flex-direction: column; gap: 8px; }',
   ],
 })
 export class OrderDetailComponent implements OnInit {
@@ -632,6 +635,7 @@ export class OrderDetailComponent implements OnInit {
 
   /* WhatsApp share */
   sharing = false;
+  shareError = '';
 
   get slug(): string {
     return this.router.url.split('/').filter(Boolean)[0] || '';
@@ -661,18 +665,16 @@ export class OrderDetailComponent implements OnInit {
     unitPrice: 0,
   };
 
-  constructor(
-    private route: ActivatedRoute,
-    private router: Router,
-    private repairOrderService: RepairOrderService,
-    private inventoryService: InventoryService,
-    private photoService: RepairOrderPhotoService,
-    private appSettings: AppSettingsService,
-    private currencyService: CurrencyService,
-    public ts: TranslationService,
-    public authService: AuthService,
-    private toast: ToastService,
-  ) {}
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly repairOrderService = inject(RepairOrderService);
+  private readonly inventoryService = inject(InventoryService);
+  private readonly photoService = inject(RepairOrderPhotoService);
+  private readonly appSettings = inject(AppSettingsService);
+  private readonly currencyService = inject(CurrencyService);
+  readonly ts = inject(TranslationService);
+  readonly authService = inject(AuthService);
+  private readonly toast = inject(ToastService);
 
   ngOnInit(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
@@ -935,6 +937,7 @@ export class OrderDetailComponent implements OnInit {
 
   /* ── WhatsApp share ── */
   async shareViaWhatsApp(): Promise<void> {
+    this.shareError = '';
     const phone = this.whatsAppPhone.replace(/[^0-9]/g, '');
     const lines: string[] = [
       `*${this.appSettings.current.appName} — ${this.ts.t('orderDetail.title')} #${this.order.id}*`,
@@ -1045,27 +1048,36 @@ export class OrderDetailComponent implements OnInit {
       window.open(url, '_blank');
     } finally {
       this.sharing = false;
+      this.cdr.markForCheck(); // flush OnPush after async state changes
     }
   }
 
-  /** Downloads each photo via the authenticated API and converts it to a File for sharing. */
+  /**
+   * Downloads all photos in parallel via the authenticated API and converts
+   * each blob into a File for the Web Share API.
+   * Individual failures are swallowed so a single bad photo does not block
+   * the rest from being shared.
+   */
   private async fetchPhotosAsFiles(): Promise<File[]> {
-    const files: File[] = [];
-    for (const ph of this.photos) {
-      if (!ph.id) continue;
-      try {
-        const blob = await firstValueFrom(
-          this.photoService.downloadPhoto(ph.id),
-        );
-        const file = new File([blob], ph.fileName || `photo-${ph.id}.jpg`, {
-          type: blob.type || 'image/jpeg',
-        });
-        files.push(file);
-      } catch {
-        // Ignore individual download failures; remaining photos still attach.
-      }
-    }
-    return files;
+    const results = await Promise.all(
+      this.photos
+        .filter((ph) => !!ph.id)
+        .map(async (ph) => {
+          try {
+            const blob = await firstValueFrom(
+              this.photoService.downloadPhoto(ph.id!),
+            );
+            return new File(
+              [blob],
+              ph.fileName || `photo-${ph.id}.jpg`,
+              { type: blob.type || 'image/jpeg' },
+            );
+          } catch {
+            return null; // individual failures are ignored
+          }
+        }),
+    );
+    return results.filter((f): f is File => f !== null);
   }
 
   appendNote(): void {
