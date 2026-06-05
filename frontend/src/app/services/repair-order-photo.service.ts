@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { RepairOrderPhoto } from '../models/repair-order-photo';
@@ -16,13 +16,11 @@ const ALLOWED_EXTENSIONS = ['jpg', 'jpeg'];
   providedIn: 'root',
 })
 export class RepairOrderPhotoService {
-  private apiUrl = '/api/repairorderphoto';
+  private readonly http = inject(HttpClient);
+  private readonly toast = inject(ToastService);
+  private readonly ts = inject(TranslationService);
 
-  constructor(
-    private http: HttpClient,
-    private toast: ToastService,
-    private ts: TranslationService,
-  ) {}
+  private readonly apiUrl = '/api/repairorderphoto';
 
   /** Returns true when the file is a valid JPG/JPEG image. */
   isJpegFile(file: File): boolean {
