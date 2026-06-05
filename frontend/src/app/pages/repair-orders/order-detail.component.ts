@@ -1032,23 +1032,58 @@ export class OrderDetailComponent implements OnInit {
       }
 
       // ── Tier 3: wa.me fallback ─────────────────────────────────────────────
-      // Opens WhatsApp with the full message pre-filled. Photos are mentioned
-      // in the text so the recipient knows to expect them separately.
-      const fallbackLines = [...lines];
-      if (this.photos.length > 0) {
-        fallbackLines.push(
-          '',
-          `📷 ${this.photos.length} ${this.ts.t('orderDetail.photos').toLowerCase()} (${this.ts.t('orderDetail.photosNote')})`,
-        );
-      }
-      const encoded = encodeURIComponent(fallbackLines.join('\n'));
+      // Desktop browsers (and cloud-hosted PWAs without file-share support)
+      // cannot attach files to a wa.me URL. Strategy:
+      //   1. Open WhatsApp with the full order text.
+      //   2. Trigger a browser download for every photo so the user has
+      //      the files ready to drag into the WhatsApp Web conversation.
+      //   3. Show a toast guiding the user to attach the downloaded files.
+      const encoded = encodeURIComponent(lines.join('\n'));
       const url = phone
         ? `https://wa.me/${phone}?text=${encoded}`
         : `https://wa.me/?text=${encoded}`;
       window.open(url, '_blank');
+
+      if (this.photos.length > 0) {
+        try {
+          const files = await this.fetchPhotosAsFiles();
+          if (files.length > 0) {
+            this.triggerFileDownloads(files);
+            this.toast.warning(
+              this.ts
+                .t('orderDetail.photosDownloadHint')
+                .replace('{count}', String(files.length)),
+            );
+          }
+        } catch {
+          // Non-critical — WhatsApp was already opened successfully.
+        }
+      }
     } finally {
       this.sharing = false;
       this.cdr.markForCheck(); // flush OnPush after async state changes
+    }
+  }
+
+  /**
+   * Triggers a browser download for each file by creating a temporary
+   * object URL and clicking a hidden anchor element.
+   * Used in the wa.me fallback so the user can manually attach photos
+   * to the WhatsApp Web conversation.
+   *
+   * @param files - The files to download.
+   */
+  private triggerFileDownloads(files: File[]): void {
+    for (const file of files) {
+      const objectUrl = URL.createObjectURL(file);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = file.name;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      // Revoke the object URL after a short delay to allow the download to start.
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
     }
   }
 
