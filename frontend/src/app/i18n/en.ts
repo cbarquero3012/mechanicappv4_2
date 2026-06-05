@@ -345,7 +345,7 @@ export const EN: Record<string, string> = {
   'orderDetail.uploadPhotos': 'Upload',
   'orderDetail.photoUploadError': 'Failed to upload photos. Please try again.',
   'orderDetail.shareWhatsApp': 'Share via WhatsApp',
-  'orderDetail.photosNote': 'photos attached separately',
+  'orderDetail.photosDownloadHint': '{count} photo(s) downloaded — open WhatsApp and attach them to the conversation.',
   'orderDetail.notes': 'Notes',
   'orderDetail.initialNote': 'Initial Notes',
   'orderDetail.allowEditNote': 'Edit Note',
