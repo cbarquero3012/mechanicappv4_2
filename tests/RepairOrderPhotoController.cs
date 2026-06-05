@@ -30,13 +30,13 @@ namespace MechanicApp.Tests;
 public class SlugSanitizationTests
 {
     [Theory]
-    [InlineData("my-tenant",  "my-tenant")]          // already safe
-    [InlineData("My Tenant",  "My_Tenant")]           // spaces → underscore
+    [InlineData("my-tenant", "my-tenant")]          // already safe
+    [InlineData("My Tenant", "My_Tenant")]           // spaces → underscore
     [InlineData("joes_taller", "joes_taller")]        // underscores kept
-    [InlineData("../evil",    "___evil")]             // path-traversal blocked
-    [InlineData("a/b\\c",    "a_b_c")]               // slashes blocked
-    [InlineData("café",      "caf_")]                // non-ASCII blocked
-    [InlineData("",          "")]                    // empty passthrough
+    [InlineData("../evil", "___evil")]             // path-traversal blocked
+    [InlineData("a/b\\c", "a_b_c")]               // slashes blocked
+    [InlineData("café", "caf_")]                // non-ASCII blocked
+    [InlineData("", "")]                    // empty passthrough
     public void SanitizeSegment_ReturnsExpectedOutput(string input, string expected)
     {
         var result = RepairOrderPhotoController.SanitizeSegment(input);
@@ -146,6 +146,57 @@ public class DownloadEndpointTests
         // Assert — controller catches ArgumentException and returns 404
         Assert.IsType<NotFoundObjectResult>(result);
     }
+
+    [Fact]
+    public async Task Download_SetsContentDispositionHeader_WhenFileExists()
+    {
+        // Arrange — write a real temporary JPEG file so PhysicalFile succeeds.
+        var tempFile = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid()}.jpg");
+        await File.WriteAllBytesAsync(tempFile, new byte[] { 0xFF, 0xD8, 0xFF });
+
+        try
+        {
+            var db = Substitute.For<IDbService>();
+            db.GetAsync<RepairOrderPhoto>(Arg.Any<string>(), Arg.Any<object>())
+                .Returns(new RepairOrderPhoto
+                {
+                    Id = 5,
+                    RepairOrderId = 1,
+                    FilePath = "/uploads/images_tenant_user/orders/1/test.jpg",
+                    FileName = "test.jpg",
+                });
+
+            var fileStorage = Substitute.For<IFileStorageService>();
+            fileStorage.GetFullPath(Arg.Any<string>()).Returns(tempFile);
+
+            var tenantCtx = Substitute.For<ITenantContext>();
+
+            var controller = BuildController(db, fileStorage, tenantCtx);
+
+            // Set up a real HttpContext so we can inspect response headers.
+            var httpCtx = new DefaultHttpContext();
+            controller.ControllerContext.HttpContext = httpCtx;
+            // Replace the default user with an authenticated one.
+            httpCtx.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.Name, "test-user"),
+            ], "TestAuth"));
+
+            // Act
+            var result = await controller.Download(5);
+
+            // Assert — result is a file and the header was written
+            var fileResult = Assert.IsType<PhysicalFileResult>(result);
+            Assert.Equal("image/jpeg", fileResult.ContentType);
+            Assert.True(
+                httpCtx.Response.Headers.ContainsKey("Content-Disposition"),
+                "Content-Disposition header should be present so browsers/share sheet can name the file.");
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -179,9 +230,9 @@ public class TenantUserPhotoStorageTests
     }
 
     [Theory]
-    [InlineData("joes-taller", "admin",    "images_joes-taller_admin/orders/7")]
-    [InlineData("My Tenant",   "John Doe", "images_My_Tenant_John_Doe/orders/7")]
-    [InlineData("../evil",     "bad/../u", "images____evil_bad____u/orders/7")]
+    [InlineData("joes-taller", "admin", "images_joes-taller_admin/orders/7")]
+    [InlineData("My Tenant", "John Doe", "images_My_Tenant_John_Doe/orders/7")]
+    [InlineData("../evil", "bad/../u", "images____evil_bad____u/orders/7")]
     public async Task Upload_PassesTenantUserScopedSubfolder(
         string slug, string username, string expectedSubFolder)
     {
@@ -277,4 +328,3 @@ public class TenantUserPhotoStorageTests
             Arg.Any<long>());
     }
 }
-
