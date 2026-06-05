@@ -345,6 +345,12 @@ export const EN: Record<string, string> = {
   'orderDetail.uploadPhotos': 'Upload',
   'orderDetail.photoUploadError': 'Failed to upload photos. Please try again.',
   'orderDetail.shareWhatsApp': 'Share via WhatsApp',
+  'orderDetail.photosDownloadHint': '{count} photo(s) downloaded — open WhatsApp and attach them to the conversation.',
+  'orderDetail.notes': 'Notes',
+  'orderDetail.initialNote': 'Initial Notes',
+  'orderDetail.allowEditNote': 'Edit Note',
+  'orderDetail.addNote': 'Add New Note',
+  'orderDetail.newNotePlaceholder': 'Definition of new note....',
 
   // Invoice
   'invoice.title': 'Invoice',
@@ -497,6 +503,7 @@ export const EN: Record<string, string> = {
 
   // Common – additional
   'common.uploading': 'Uploading...',
+  'common.sharing': 'Sharing...',
   // 'common.saving': 'Saving...',
 
   // Navigation – Settings

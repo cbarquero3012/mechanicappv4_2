@@ -7,6 +7,7 @@ import {
   ChangeDetectorRef,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { firstValueFrom } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { ActivatedRoute, Router } from '@angular/router';
 import { RepairOrderService } from '../../services/repair-order.service';
@@ -72,10 +73,18 @@ import { markDirty } from '../../utils/mark-dirty';
           <button
             class="btn btn-whatsapp"
             (click)="shareViaWhatsApp()"
+            [disabled]="sharing"
             [title]="'orderDetail.shareWhatsApp' | translate"
           >
-            &#128172; {{ 'orderDetail.shareWhatsApp' | translate }}
+            @if (sharing) {
+              &#9203; {{ 'common.sharing' | translate }}
+            } @else {
+              &#128172; {{ 'orderDetail.shareWhatsApp' | translate }}
+            }
           </button>
+          @if (shareError) {
+            <span class="share-error">{{ shareError }}</span>
+          }
         </div>
         @if (orderErrorMsg) {
           <div class="error-message">{{ orderErrorMsg }}</div>
@@ -433,7 +442,7 @@ import { markDirty } from '../../utils/mark-dirty';
               <option [ngValue]="0">
                 -- {{ 'orderDetail.selectProduct' | translate }} --
               </option>
-              @for (pr of availableProducts; track pr) {
+              @for (pr of availableProducts; track pr.id) {
                 <option [ngValue]="pr.id">
                   {{ pr.name }} [{{ pr.quantity }}
                   {{ 'orderDetail.inStock' | translate }}]
@@ -488,7 +497,7 @@ import { markDirty } from '../../utils/mark-dirty';
                 </tr>
               </thead>
               <tbody>
-                @for (pr of orderProducts; track pr) {
+                @for (pr of orderProducts; track pr.id) {
                   <tr>
                     <td>{{ pr.productName }}</td>
                     <td>{{ pr.productSKU || '-' }}</td>
@@ -570,31 +579,23 @@ import { markDirty } from '../../utils/mark-dirty';
             </div>
           }
           @if (photos.length > 0) {
-            <div class="photo-gallery">
-              @for (photo of photos; track photo) {
-                <div class="photo-card">
-                  <img
-                    [src]="photo.filePath"
-                    [alt]="photo.fileName"
-                    class="photo-thumb"
-                    (click)="openLightbox(photo)"
-                  />
-                  <div class="photo-info">
-                    <span class="photo-name">{{ photo.fileName }}</span>
-                    @if (photo.description) {
-                      <span class="photo-desc">{{ photo.description }}</span>
-                    }
-                    <button
-                      class="btn-icon btn-delete"
-                      (click)="deletePhoto(photo.id!)"
-                      [title]="'common.delete' | translate"
-                    >
-                      &#128465;
-                    </button>
-                  </div>
-                </div>
+            <ul class="photo-list">
+              @for (photo of photos; track photo.id) {
+                <li class="photo-list-item">
+                  <span class="photo-name">&#128247; {{ photo.fileName }}</span>
+                  @if (photo.description) {
+                    <span class="photo-desc">{{ photo.description }}</span>
+                  }
+                  <button
+                    class="btn-icon btn-delete"
+                    (click)="deletePhoto(photo.id!)"
+                    [title]="'common.delete' | translate"
+                  >
+                    &#128465;
+                  </button>
+                </li>
               }
-            </div>
+            </ul>
           }
           @if (photos.length === 0) {
             <p class="empty-hint">
@@ -602,30 +603,11 @@ import { markDirty } from '../../utils/mark-dirty';
             </p>
           }
         </div>
-        <!-- Lightbox -->
-        @if (lightboxPhoto) {
-          <div class="lightbox-overlay" (click)="closeLightbox()">
-            <div class="lightbox-content" (click)="$event.stopPropagation()">
-              <button class="lightbox-close" (click)="closeLightbox()">
-                &times;
-              </button>
-              <img
-                [src]="lightboxPhoto.filePath"
-                [alt]="lightboxPhoto.fileName"
-              />
-              @if (lightboxPhoto.description) {
-                <p>
-                  {{ lightboxPhoto.description }}
-                </p>
-              }
-            </div>
-          </div>
-        }
       </div>
     }
   `,
   styles: [
-    '.order-summary { background: var(--card-bg, #f8f9fa); padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; } .summary-row { display: flex; gap: 24px; flex-wrap: wrap; align-items: center; } .total-badge { background: var(--primary, #0d6efd); color: #fff; padding: 4px 12px; border-radius: 4px; } .section-card { background: var(--card-bg, #fff); border: 1px solid var(--border, #dee2e6); border-radius: 8px; padding: 16px; margin-bottom: 20px; } .section-card h2 { margin: 0 0 12px; font-size: 1.1rem; } .add-line-form { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; } .add-line-form select { flex: 2; min-width: 200px; } .qty-input { width: 70px; } .price-input { width: 100px; } .btn-sm { padding: 6px 12px; font-size: 0.9rem; } .empty-hint { opacity: 0.6; font-style: italic; } .btn-whatsapp { background: #25D366; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.95rem; } .btn-whatsapp:hover { background: #1DA851; } .photo-upload-form { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; } .file-input { flex: 1; min-width: 200px; } .photo-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-top: 12px; } .photo-card { border: 1px solid var(--border, #dee2e6); border-radius: 8px; overflow: hidden; background: var(--card-bg, #fff); } .photo-thumb { width: 100%; height: 120px; object-fit: cover; cursor: pointer; transition: opacity 0.2s; } .photo-thumb:hover { opacity: 0.8; } .photo-info { padding: 8px; display: flex; flex-direction: column; gap: 4px; position: relative; } .photo-name { font-size: 0.8rem; word-break: break-all; opacity: 0.7; } .photo-desc { font-size: 0.85rem; } .photo-info .btn-delete { position: absolute; top: 4px; right: 4px; } .lightbox-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 9999; } .lightbox-content { position: relative; max-width: 90vw; max-height: 90vh; text-align: center; } .lightbox-content img { max-width: 100%; max-height: 80vh; border-radius: 8px; } .lightbox-content p { color: #fff; margin-top: 12px; font-size: 1rem; } .lightbox-close { position: absolute; top: -16px; right: -16px; background: #fff; border: none; font-size: 1.5rem; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; line-height: 1; } .note-block { margin-bottom: 4px; } .note-block-header { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; flex-wrap: wrap; } .note-label { font-weight: 600; font-size: 0.9rem; } .note-edit-toggle { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer; color: var(--primary, #0d6efd); } .note-text { background: var(--input-bg, #f8f9fa); border: 1px solid var(--border, #dee2e6); border-radius: 6px; padding: 10px 12px; white-space: pre-wrap; word-break: break-word; font-size: 0.9rem; min-height: 48px; } .note-locked-hint { font-size: 0.78rem; opacity: 0.55; margin: 6px 0 0; } .note-textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border, #dee2e6); border-radius: 6px; font-size: 0.9rem; resize: vertical; background: var(--input-bg, #fff); } .note-append-block { margin-top: 16px; border-top: 1px solid var(--border, #dee2e6); padding-top: 14px; display: flex; flex-direction: column; gap: 8px; }',
+    '.order-summary { background: var(--card-bg, #f8f9fa); padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; } .summary-row { display: flex; gap: 24px; flex-wrap: wrap; align-items: center; } .total-badge { background: var(--primary, #0d6efd); color: #fff; padding: 4px 12px; border-radius: 4px; } .section-card { background: var(--card-bg, #fff); border: 1px solid var(--border, #dee2e6); border-radius: 8px; padding: 16px; margin-bottom: 20px; } .section-card h2 { margin: 0 0 12px; font-size: 1.1rem; } .add-line-form { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; } .add-line-form select { flex: 2; min-width: 200px; } .qty-input { width: 70px; } .price-input { width: 100px; } .btn-sm { padding: 6px 12px; font-size: 0.9rem; } .empty-hint { opacity: 0.6; font-style: italic; } .btn-whatsapp { background: #25D366; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.95rem; } .btn-whatsapp:hover:not(:disabled) { background: #1DA851; } .btn-whatsapp:disabled { opacity: 0.6; cursor: not-allowed; } .share-error { color: var(--danger, #dc3545); font-size: 0.85rem; margin-left: 8px; } .photo-upload-form { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; } .file-input { flex: 1; min-width: 200px; } .photo-list { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 4px; } .photo-list-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border, #dee2e6); border-radius: 6px; background: var(--card-bg, #fff); } .photo-name { flex: 1; font-size: 0.9rem; word-break: break-all; } .photo-desc { font-size: 0.85rem; opacity: 0.7; } .photo-list-item .btn-delete { margin-left: auto; flex-shrink: 0; }ff; border: none; font-size: 1.5rem; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; line-height: 1; } .note-block { margin-bottom: 4px; } .note-block-header { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; flex-wrap: wrap; } .note-label { font-weight: 600; font-size: 0.9rem; } .note-edit-toggle { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer; color: var(--primary, #0d6efd); } .note-text { background: var(--input-bg, #f8f9fa); border: 1px solid var(--border, #dee2e6); border-radius: 6px; padding: 10px 12px; white-space: pre-wrap; word-break: break-word; font-size: 0.9rem; min-height: 48px; } .note-locked-hint { font-size: 0.78rem; opacity: 0.55; margin: 6px 0 0; } .note-textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border, #dee2e6); border-radius: 6px; font-size: 0.9rem; resize: vertical; background: var(--input-bg, #fff); } .note-append-block { margin-top: 16px; border-top: 1px solid var(--border, #dee2e6); padding-top: 14px; display: flex; flex-direction: column; gap: 8px; }',
   ],
 })
 export class OrderDetailComponent implements OnInit {
@@ -650,7 +632,10 @@ export class OrderDetailComponent implements OnInit {
   selectedFiles: File[] = [];
   photoDescription = '';
   uploading = false;
-  lightboxPhoto: RepairOrderPhoto | null = null;
+
+  /* WhatsApp share */
+  sharing = false;
+  shareError = '';
 
   get slug(): string {
     return this.router.url.split('/').filter(Boolean)[0] || '';
@@ -680,18 +665,16 @@ export class OrderDetailComponent implements OnInit {
     unitPrice: 0,
   };
 
-  constructor(
-    private route: ActivatedRoute,
-    private router: Router,
-    private repairOrderService: RepairOrderService,
-    private inventoryService: InventoryService,
-    private photoService: RepairOrderPhotoService,
-    private appSettings: AppSettingsService,
-    private currencyService: CurrencyService,
-    public ts: TranslationService,
-    public authService: AuthService,
-    private toast: ToastService,
-  ) {}
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly repairOrderService = inject(RepairOrderService);
+  private readonly inventoryService = inject(InventoryService);
+  private readonly photoService = inject(RepairOrderPhotoService);
+  private readonly appSettings = inject(AppSettingsService);
+  private readonly currencyService = inject(CurrencyService);
+  readonly ts = inject(TranslationService);
+  readonly authService = inject(AuthService);
+  private readonly toast = inject(ToastService);
 
   ngOnInit(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
@@ -952,16 +935,9 @@ export class OrderDetailComponent implements OnInit {
       });
   }
 
-  openLightbox(photo: RepairOrderPhoto) {
-    this.lightboxPhoto = photo;
-  }
-
-  closeLightbox() {
-    this.lightboxPhoto = null;
-  }
-
   /* ── WhatsApp share ── */
   async shareViaWhatsApp(): Promise<void> {
+    this.shareError = '';
     const phone = this.whatsAppPhone.replace(/[^0-9]/g, '');
     const lines: string[] = [
       `*${this.appSettings.current.appName} — ${this.ts.t('orderDetail.title')} #${this.order.id}*`,
@@ -1000,63 +976,143 @@ export class OrderDetailComponent implements OnInit {
 
     const text = lines.join('\n');
 
-    // Try Web Share API with file attachments (works on most mobile browsers
-    // and Edge/Chrome desktop with PWA support). Falls back to wa.me URL.
+    this.sharing = true;
+
+    // Typed subset of the Web Share API (not yet in all TS lib typings).
     const nav = navigator as Navigator & {
       canShare?: (data: ShareData) => boolean;
       share?: (data: ShareData) => Promise<void>;
     };
 
-    if (this.photos.length > 0 && nav.share && nav.canShare) {
-      try {
-        const files = await this.fetchPhotosAsFiles();
-        const shareData: ShareData = { text, files };
-        if (files.length > 0 && nav.canShare(shareData)) {
-          await nav.share(shareData);
-          return;
+    try {
+      // ── Tier 1: Web Share with photo files attached ────────────────────────
+      // Works on most mobile browsers (Chrome Android, Safari iOS) and
+      // Chrome/Edge desktop when used as a PWA.
+      if (this.photos.length > 0 && nav.share) {
+        try {
+          const files = await this.fetchPhotosAsFiles();
+          if (files.length > 0) {
+            const dataWithFiles: ShareData = { text, files };
+            // canShare() guards against browsers that expose share() but
+            // don't support file attachments.
+            if (!nav.canShare || nav.canShare(dataWithFiles)) {
+              await nav.share(dataWithFiles);
+              return; // ✓ shared with images
+            }
+          }
+        } catch (err: unknown) {
+          // AbortError = user dismissed the share sheet — do not fall through
+          // to wa.me in that case.
+          if (err instanceof DOMException && err.name === 'AbortError') return;
+          console.warn(
+            'Web Share with files failed, trying text-only share',
+            err,
+          );
         }
-      } catch (err) {
-        // User cancelled or share failed — fall through to wa.me link.
-        console.warn('Web Share with files failed, falling back to wa.me', err);
       }
-    }
 
-    // Fallback: include photo URLs as links in the text.
-    const fallbackLines = [...lines];
-    if (this.photos.length > 0) {
-      fallbackLines.push(
-        '',
-        `📷 ${this.photos.length} ${this.ts.t('orderDetail.photos').toLowerCase()}`,
-      );
-      this.photos.forEach((ph) => {
-        fallbackLines.push(`  ${window.location.origin}${ph.filePath}`);
-      });
+      // ── Tier 2: Web Share text only ────────────────────────────────────────
+      // Devices that have the native share sheet but can't transfer files
+      // (e.g. desktop Chrome). The native sheet still lets the user pick
+      // WhatsApp and send the order summary as a message.
+      if (nav.share) {
+        try {
+          const dataTextOnly: ShareData = { text };
+          if (!nav.canShare || nav.canShare(dataTextOnly)) {
+            await nav.share(dataTextOnly);
+            return; // ✓ shared text via native sheet
+          }
+        } catch (err: unknown) {
+          if (err instanceof DOMException && err.name === 'AbortError') return;
+          console.warn(
+            'Text-only Web Share failed, falling back to wa.me',
+            err,
+          );
+        }
+      }
+
+      // ── Tier 3: wa.me fallback ─────────────────────────────────────────────
+      // Desktop browsers (and cloud-hosted PWAs without file-share support)
+      // cannot attach files to a wa.me URL. Strategy:
+      //   1. Open WhatsApp with the full order text.
+      //   2. Trigger a browser download for every photo so the user has
+      //      the files ready to drag into the WhatsApp Web conversation.
+      //   3. Show a toast guiding the user to attach the downloaded files.
+      const encoded = encodeURIComponent(lines.join('\n'));
+      const url = phone
+        ? `https://wa.me/${phone}?text=${encoded}`
+        : `https://wa.me/?text=${encoded}`;
+      window.open(url, '_blank');
+
+      if (this.photos.length > 0) {
+        try {
+          const files = await this.fetchPhotosAsFiles();
+          if (files.length > 0) {
+            this.triggerFileDownloads(files);
+            this.toast.warning(
+              this.ts
+                .t('orderDetail.photosDownloadHint')
+                .replace('{count}', String(files.length)),
+            );
+          }
+        } catch {
+          // Non-critical — WhatsApp was already opened successfully.
+        }
+      }
+    } finally {
+      this.sharing = false;
+      this.cdr.markForCheck(); // flush OnPush after async state changes
     }
-    const encoded = encodeURIComponent(fallbackLines.join('\n'));
-    const url = phone
-      ? `https://wa.me/${phone}?text=${encoded}`
-      : `https://wa.me/?text=${encoded}`;
-    window.open(url, '_blank');
   }
 
-  /** Downloads each photo and converts it to a File for sharing. */
-  private async fetchPhotosAsFiles(): Promise<File[]> {
-    const files: File[] = [];
-    for (const ph of this.photos) {
-      try {
-        const resp = await fetch(ph.filePath);
-        if (!resp.ok) continue;
-        const blob = await resp.blob();
-        // Force jpeg MIME because the backend only accepts JPG.
-        const file = new File([blob], ph.fileName || `photo-${ph.id}.jpg`, {
-          type: blob.type || 'image/jpeg',
-        });
-        files.push(file);
-      } catch {
-        // Ignore individual fetch failures; remaining photos still attach.
-      }
+  /**
+   * Triggers a browser download for each file by creating a temporary
+   * object URL and clicking a hidden anchor element.
+   * Used in the wa.me fallback so the user can manually attach photos
+   * to the WhatsApp Web conversation.
+   *
+   * @param files - The files to download.
+   */
+  private triggerFileDownloads(files: File[]): void {
+    for (const file of files) {
+      const objectUrl = URL.createObjectURL(file);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = file.name;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      // Revoke the object URL after a short delay to allow the download to start.
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
     }
-    return files;
+  }
+
+  /**
+   * Downloads all photos in parallel via the authenticated API and converts
+   * each blob into a File for the Web Share API.
+   * Individual failures are swallowed so a single bad photo does not block
+   * the rest from being shared.
+   */
+  private async fetchPhotosAsFiles(): Promise<File[]> {
+    const results = await Promise.all(
+      this.photos
+        .filter((ph) => !!ph.id)
+        .map(async (ph) => {
+          try {
+            const blob = await firstValueFrom(
+              this.photoService.downloadPhoto(ph.id!),
+            );
+            return new File(
+              [blob],
+              ph.fileName || `photo-${ph.id}.jpg`,
+              { type: blob.type || 'image/jpeg' },
+            );
+          } catch {
+            return null; // individual failures are ignored
+          }
+        }),
+    );
+    return results.filter((f): f is File => f !== null);
   }
 
   appendNote(): void {
