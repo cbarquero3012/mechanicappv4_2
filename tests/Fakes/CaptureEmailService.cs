@@ -8,7 +8,7 @@ namespace MechanicApp.Tests.Fakes;
 /// <summary>
 /// Subclass of <see cref="EmailService"/> that intercepts
 /// <see cref="EmailService.SendEmailWithRetryAsync"/> so tests can inspect the
-/// generated subject and HTML body without needing a live SMTP server.
+/// generated subject and HTML body without hitting the Resend API.
 /// </summary>
 internal sealed class CaptureEmailService : EmailService
 {
@@ -16,8 +16,10 @@ internal sealed class CaptureEmailService : EmailService
     public string? CapturedSubject  { get; private set; }
     public string? CapturedBody     { get; private set; }
 
-    public CaptureEmailService(IOptions<SmtpSettings> smtp, ILogger<EmailService> logger)
-        : base(smtp, logger) { }
+    /// <param name="settings">Email settings (API key not required — send is intercepted).</param>
+    /// <param name="logger">Logger instance.</param>
+    public CaptureEmailService(IOptions<EmailSettings> settings, ILogger<EmailService> logger)
+        : base(settings, null!, logger) { }
 
     protected override Task<bool> SendEmailWithRetryAsync(
         string toEmail, string subject, string htmlBody)
