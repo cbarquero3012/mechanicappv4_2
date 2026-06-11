@@ -1,7 +1,7 @@
 services:
   db:
      image: postgres:15
-     container_name: mechanic_db_container1
+     container_name: mechanic_db_container
      environment:
        POSTGRES_USER: ${POSTGRES_USER:-postgres}
        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-12345678}
@@ -25,7 +25,7 @@ services:
     build: 
       context: ./backend
       dockerfile: Dockerfile
-    container_name: mechanic_backend1
+    container_name: mechanic_backend
     environment:
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=${POSTGRES_DB:-mechanic_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-12345678};Minimum Pool Size=2;Maximum Pool Size=20;Timeout=30;Command Timeout=30
       - ConnectionStrings__ControlPlane=Host=db;Port=5432;Database=${POSTGRES_DB:-mechanic_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-12345678};Minimum Pool Size=1;Maximum Pool Size=10;Timeout=30;Command Timeout=30
@@ -48,7 +48,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: mechanic_frontend1
+    container_name: mechanic_frontend
     ports:
       - "80:80"
       - "443:443"
@@ -61,7 +61,7 @@ services:
 
   backup:
     image: postgres:15
-    container_name: mechanic_db_backup1
+    container_name: mechanic_db_backup
     environment:
       PGHOST: db
       PGPORT: "5432"
