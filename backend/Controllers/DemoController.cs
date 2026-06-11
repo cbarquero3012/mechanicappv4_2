@@ -17,7 +17,7 @@ namespace MechanicApp.Server.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [EnableRateLimiting("public")]
-    public class DemoController(ITenantProvisioningService provisioning, IEmailService emailService, IOptions<SmtpSettings> smtpOptions) : ControllerBase
+    public class DemoController(ITenantProvisioningService provisioning, IEmailService emailService, IOptions<EmailSettings> smtpOptions) : ControllerBase
     {
         // ────────────────────────────────────────────────────────
         // POST: Create a new demo instance
