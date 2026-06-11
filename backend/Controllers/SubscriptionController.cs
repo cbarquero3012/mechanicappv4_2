@@ -18,9 +18,17 @@ namespace MechanicApp.Server.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
-    public class SubscriptionController(IDbService db, IOptions<StripeSettings> stripe, ITenantProvisioningService tenantProvisioning, ITenantContext tenantContext, ILogger<SubscriptionController> logger) : ControllerBase
+    public class SubscriptionController(
+        IDbService db,
+        IOptions<StripeSettings> stripe,
+        ITenantProvisioningService tenantProvisioning,
+        ITenantContext tenantContext,
+        IEmailService emailService,
+        IOptions<EmailSettings> smtpOptions,
+        ILogger<SubscriptionController> logger) : ControllerBase
     {
         private readonly StripeSettings _stripe = stripe.Value;
+        private readonly EmailSettings _smtpSettings = smtpOptions.Value;
 
         // ────────────────────────────────────────────────────────
         // Public: Check current subscription status (used by frontend guard)
@@ -279,6 +287,22 @@ namespace MechanicApp.Server.Controllers
                     });
             }
 
+            // Send payment-confirmed email for new checkout completions (best-effort, non-blocking).
+            if (eventType == "checkout.session.completed" && status == SubscriptionStatus.Active
+                && !string.IsNullOrEmpty(customerEmail))
+            {
+                var tenant = await tenantProvisioning.GetTenantByEmailAsync(customerEmail);
+                var loginUrl = tenant != null ? BuildLoginUrl(tenant.Slug) : _smtpSettings.FrontendBaseUrl?.TrimEnd('/') ?? string.Empty;
+                var emailSent = await emailService.SendWelcomeEmailAsync(
+                    customerEmail,
+                    username: "administrador",
+                    loginUrl: loginUrl,
+                    planName: tenant?.PlanName ?? "standard",
+                    password: null);
+                if (!emailSent)
+                    logger.LogWarning("Payment confirmation email could not be sent to {Email}", customerEmail);
+            }
+
             return Ok(new { message = $"Webhook processed: {eventType} -> {status}" });
         }
 
@@ -329,6 +353,16 @@ namespace MechanicApp.Server.Controllers
                 }
 
                 var upgradePaymentUrl = BuildPaymentUrl(req.Email, upgradePlan);
+
+                // Send upgrade-confirmation email (password: null — user set it during upgrade).
+                var upgradeLoginUrl = BuildLoginUrl(converted.Slug);
+                var upgradeEmailSent = await emailService.SendWelcomeEmailAsync(
+                    req.Email, username, upgradeLoginUrl, upgradePlan,
+                    password: null,
+                    expiresAt: converted.SubscriptionExpiresAt);
+                if (!upgradeEmailSent)
+                    logger.LogWarning("Upgrade confirmation email could not be sent to {Email}", req.Email);
+
                 return Ok(new
                 {
                     message = "Your demo has been upgraded to a paid plan. All data preserved!",
@@ -369,6 +403,15 @@ namespace MechanicApp.Server.Controllers
             // Build Stripe payment URL with email prefilled
             var paymentUrl = BuildPaymentUrl(req.Email, planName);
 
+            // Send welcome email with credentials (password is plaintext at this stage).
+            var loginUrl = BuildLoginUrl(tenant.Slug);
+            var emailSent = await emailService.SendWelcomeEmailAsync(
+                req.Email, username, loginUrl, planName,
+                password: req.AdminPassword,
+                expiresAt: tenant.SubscriptionExpiresAt);
+            if (!emailSent)
+                logger.LogWarning("Welcome email could not be sent to {Email}", req.Email);
+
             return Ok(new
             {
                 message = "Account created successfully!",
@@ -395,5 +438,9 @@ namespace MechanicApp.Server.Controllers
             var separator = _stripe.PaymentLinkUrl.Contains('?') ? "&" : "?";
             return $"{_stripe.PaymentLinkUrl}{separator}prefilled_email={Uri.EscapeDataString(email)}";
         }
+
+        /// <summary>Builds the absolute login URL for a tenant from the configured frontend base URL.</summary>
+        private string BuildLoginUrl(string slug) =>
+            $"{_smtpSettings.FrontendBaseUrl?.TrimEnd('/') ?? string.Empty}/{slug}/login";
     }
 }
