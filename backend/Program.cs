@@ -7,6 +7,7 @@ using MechanicApp.Server.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using Scalar.AspNetCore;
@@ -24,7 +25,7 @@ builder.Services.AddCors(options =>
         policy =>
         {
             policy.WithOrigins(
-                    "http://localhost:4200",
+                    "http://localhost:4201",
                     "http://localhost:5236")
                   .WithHeaders("Authorization", "Content-Type", "X-Tenant-Slug")
                   .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
@@ -34,7 +35,7 @@ builder.Services.AddCors(options =>
 // Strongly-typed settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(JwtSettings.SectionName));
 builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection(StripeSettings.SectionName));
-builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection(SmtpSettings.SectionName));
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection(EmailSettings.SectionName));
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"]
@@ -147,6 +148,15 @@ builder.Services.AddScoped<ICurrencyConversionService, CurrencyConversionService
 builder.Services.AddScoped<IPaymentDistributionService, PaymentDistributionService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddSingleton<ITenantProvisioningService, TenantProvisioningService>();
+// Named HttpClient for Resend API — pooled, pre-configured with auth header.
+builder.Services.AddHttpClient("resend", (sp, client) =>
+{
+    var settings = sp.GetRequiredService<IOptions<EmailSettings>>().Value;
+    client.DefaultRequestHeaders.Authorization =
+        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", settings.ResendApiKey);
+    client.DefaultRequestHeaders.Accept.Add(
+        new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+});
 builder.Services.AddSingleton<IEmailService, EmailService>();
 
 // OpenAPI document generation (built-in .NET 10)

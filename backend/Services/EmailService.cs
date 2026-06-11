@@ -1,56 +1,63 @@
-using MailKit.Net.Smtp;
+using System.Net.Http.Json;
 using MechanicApp.Server.Options;
 using Microsoft.Extensions.Options;
-using MimeKit;
 
 namespace MechanicApp.Server.Services
 {
-  public class EmailService(IOptions<SmtpSettings> smtp, ILogger<EmailService> logger) : IEmailService
-  {
-    private readonly SmtpSettings _smtp = smtp.Value;
-    private const int MaxRetries = 3;
-
-    public async Task<bool> SendWelcomeEmailAsync(string toEmail, string username, string loginUrl, string planName,
-        string? password = null, DateTime? expiresAt = null, bool isDemo = false)
+    /// <summary>
+    /// Sends transactional email via the Resend REST API.
+    /// Uses <see cref="IHttpClientFactory"/> with the named client "resend" so the
+    /// underlying <see cref="System.Net.Http.HttpClient"/> is properly pooled.
+    /// </summary>
+    public class EmailService(
+        IOptions<EmailSettings> emailOptions,
+        IHttpClientFactory httpClientFactory,
+        ILogger<EmailService> logger) : IEmailService
     {
-      if (string.IsNullOrWhiteSpace(toEmail) || !IsValidEmail(toEmail))
-      {
-        logger.LogWarning("Invalid or empty email address: {Email}. Skipping welcome email.", toEmail);
-        return false;
-      }
+        private readonly EmailSettings _settings = emailOptions.Value;
+        private const int MaxRetries = 3;
+        private const string ResendApiUrl = "https://api.resend.com/emails";
 
-      string subject;
-      if (isDemo)
-          subject = "Welcome to MechanicApp – Your Free Trial is Ready!";
-      else if (string.IsNullOrEmpty(password))
-          subject = "Welcome to MechanicApp – Your Payment Is Confirmed!";
-      else
-          subject = "Welcome to MechanicApp – Your Account Has Been Created!";
+        /// <inheritdoc />
+        public async Task<bool> SendWelcomeEmailAsync(
+            string toEmail, string username, string loginUrl, string planName,
+            string? password = null, DateTime? expiresAt = null, bool isDemo = false)
+        {
+            if (string.IsNullOrWhiteSpace(toEmail) || !IsValidEmail(toEmail))
+            {
+                logger.LogWarning("Invalid or empty email address: {Email}. Skipping welcome email.", toEmail);
+                return false;
+            }
 
-      var credentialsSection = !string.IsNullOrEmpty(password)
-          ? $@"<p style=""margin: 4px 0; color: #1e293b;"">🔑 Password: <strong>{password}</strong></p>
-               <p style=""margin: 4px 0; color: #64748b; font-size: 13px;"">Change your password after first login</p>"
-          : @"<p style=""margin: 8px 0 0; color: #64748b; font-size: 13px;"">Use the password you set during registration.</p>";
+            string subject;
+            if (isDemo)
+                subject = "Welcome to MechanicApp – Your Free Trial is Ready!";
+            else if (string.IsNullOrEmpty(password))
+                subject = "Welcome to MechanicApp – Your Payment Is Confirmed!";
+            else
+                subject = "Welcome to MechanicApp – Your Account Has Been Created!";
 
-      var badgeColor = isDemo ? "#f59e0b" : "#2563eb";
-      var badgeLabel = isDemo ? "FREE TRIAL" : planName.ToUpperInvariant();
+            var credentialsSection = !string.IsNullOrEmpty(password)
+                ? $@"<p style=""margin: 4px 0; color: #1e293b;"">🔑 Password: <strong>{password}</strong></p>
+                     <p style=""margin: 4px 0; color: #64748b; font-size: 13px;"">Change your password after first login</p>"
+                : @"<p style=""margin: 8px 0 0; color: #64748b; font-size: 13px;"">Use the password you set during registration.</p>";
 
-      var expirySection = "";
-      if (expiresAt.HasValue)
-      {
-          var expiryLabel = isDemo ? "Trial expires" : "Active until";
-          expirySection = $@"<p style=""margin: 4px 0; color: #dc2626;"">{expiryLabel}: <strong>{expiresAt.Value:MMMM dd, yyyy}</strong></p>";
-      }
+            var badgeColor = isDemo ? "#f59e0b" : "#2563eb";
+            var badgeLabel = isDemo ? "FREE TRIAL" : planName.ToUpperInvariant();
 
-      var headerText = isDemo
-          ? "Your free trial is ready!"
-          : "Your payment was successful!";
+            var expirySection = "";
+            if (expiresAt.HasValue)
+            {
+                var expiryLabel = isDemo ? "Trial expires" : "Active until";
+                expirySection = $@"<p style=""margin: 4px 0; color: #dc2626;"">{expiryLabel}: <strong>{expiresAt.Value:MMMM dd, yyyy}</strong></p>";
+            }
 
-      var introText = isDemo
-          ? "Welcome to MechanicApp! Your demo account is active and ready to explore."
-          : "Thank you for subscribing to MechanicApp. Your account is now active and ready to use.";
+            var headerText = isDemo ? "Your free trial is ready!" : "Your payment was successful!";
+            var introText = isDemo
+                ? "Welcome to MechanicApp! Your demo account is active and ready to explore."
+                : "Thank you for subscribing to MechanicApp. Your account is now active and ready to use.";
 
-      var htmlBody = $@"
+            var htmlBody = $@"
 <!DOCTYPE html>
 <html>
 <head><meta charset=""utf-8""></head>
@@ -62,7 +69,6 @@ namespace MechanicApp.Server.Services
     <div style=""padding: 32px;"">
       <h2 style=""color: #1e293b; margin-top: 0;"">{headerText}</h2>
       <p style=""color: #475569;"">{introText}</p>
-
       <div style=""background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 24px 0;"">
         <p style=""margin: 0 0 8px; color: #1e293b;""><strong>Your Account Details:</strong></p>
         <span style=""background: {badgeColor}; color: #ffffff; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold;"">{badgeLabel}</span>
@@ -71,17 +77,14 @@ namespace MechanicApp.Server.Services
         {credentialsSection}
         {expirySection}
       </div>
-
       <div style=""text-align: center; margin: 32px 0;"">
         <a href=""{loginUrl}"" style=""background: #2563eb; color: #ffffff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-size: 16px; font-weight: 600;"">
           Go to Login
         </a>
       </div>
-
       <p style=""color: #475569; font-size: 14px;"">
         Login URL: <a href=""{loginUrl}"" style=""color: #2563eb;"">{loginUrl}</a>
       </p>
-
       <hr style=""border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;"">
       <p style=""color: #94a3b8; font-size: 12px; text-align: center;"">
         If you did not create this account, please ignore this email.<br>
@@ -92,68 +95,79 @@ namespace MechanicApp.Server.Services
 </body>
 </html>";
 
-      return await SendEmailWithRetryAsync(toEmail, subject, htmlBody);
-    }
-
-    protected virtual async Task<bool> SendEmailWithRetryAsync(string toEmail, string subject, string htmlBody)
-    {
-      if (string.IsNullOrWhiteSpace(_smtp.Host) || string.IsNullOrWhiteSpace(_smtp.Username))
-      {
-        logger.LogWarning("SMTP not configured. Skipping email to {Email}. Subject: {Subject}", toEmail, subject);
-        return false;
-      }
-
-      for (int attempt = 1; attempt <= MaxRetries; attempt++)
-      {
-        try
-        {
-          var message = new MimeMessage();
-          message.From.Add(new MailboxAddress(_smtp.FromName, _smtp.FromEmail));
-          message.To.Add(MailboxAddress.Parse(toEmail));
-          message.Subject = subject;
-          message.Body = new TextPart("html") { Text = htmlBody };
-
-          using var client = new SmtpClient();
-          await client.ConnectAsync(_smtp.Host, _smtp.Port, _smtp.EnableSsl
-              ? MailKit.Security.SecureSocketOptions.StartTls
-              : MailKit.Security.SecureSocketOptions.Auto);
-
-          if (!string.IsNullOrEmpty(_smtp.Username))
-            await client.AuthenticateAsync(_smtp.Username, _smtp.Password);
-
-          await client.SendAsync(message);
-          await client.DisconnectAsync(true);
-
-          logger.LogInformation("Welcome email sent to {Email} (attempt {Attempt})", toEmail, attempt);
-          return true;
+            return await SendEmailWithRetryAsync(toEmail, subject, htmlBody).ConfigureAwait(false);
         }
-        catch (Exception ex) when (attempt < MaxRetries)
-        {
-          logger.LogWarning(ex, "Email send attempt {Attempt}/{MaxRetries} failed for {Email}. Retrying...",
-              attempt, MaxRetries, toEmail);
-          await Task.Delay(attempt * 1000); // exponential backoff: 1s, 2s
-        }
-        catch (Exception ex)
-        {
-          logger.LogError(ex, "Failed to send email to {Email} after {MaxRetries} attempts", toEmail, MaxRetries);
-          return false;
-        }
-      }
 
-      return false;
-    }
+        /// <summary>
+        /// Posts the email payload to the Resend API with exponential-backoff retry.
+        /// Marked <c>virtual</c> so test fakes can override it without an HTTPS call.
+        /// </summary>
+        protected virtual async Task<bool> SendEmailWithRetryAsync(
+            string toEmail, string subject, string htmlBody)
+        {
+            if (string.IsNullOrWhiteSpace(_settings.ResendApiKey))
+            {
+                logger.LogWarning("Resend API key not configured. Skipping email to {Email}.", toEmail);
+                return false;
+            }
 
-    private static bool IsValidEmail(string email)
-    {
-      try
-      {
-        var addr = new System.Net.Mail.MailAddress(email);
-        return addr.Address == email;
-      }
-      catch
-      {
-        return false;
-      }
+            var payload = new
+            {
+                from = $"{_settings.FromName} <{_settings.FromEmail}>",
+                to   = new[] { toEmail },
+                subject,
+                html = htmlBody,
+            };
+
+            for (int attempt = 1; attempt <= MaxRetries; attempt++)
+            {
+                try
+                {
+                    var client = httpClientFactory.CreateClient("resend");
+                    var response = await client
+                        .PostAsJsonAsync(ResendApiUrl, payload)
+                        .ConfigureAwait(false);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        logger.LogInformation("Email sent to {Email} via Resend (attempt {Attempt})", toEmail, attempt);
+                        return true;
+                    }
+
+                    var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    logger.LogWarning(
+                        "Resend API returned {StatusCode} on attempt {Attempt}/{MaxRetries} for {Email}: {Body}",
+                        (int)response.StatusCode, attempt, MaxRetries, toEmail, body);
+                }
+                catch (Exception ex) when (attempt < MaxRetries)
+                {
+                    logger.LogWarning(ex,
+                        "Email send attempt {Attempt}/{MaxRetries} failed for {Email}. Retrying...",
+                        attempt, MaxRetries, toEmail);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to send email to {Email} after {MaxRetries} attempts", toEmail, MaxRetries);
+                    return false;
+                }
+
+                await Task.Delay(attempt * 1000).ConfigureAwait(false); // 1 s, 2 s backoff
+            }
+
+            return false;
+        }
+
+        private static bool IsValidEmail(string email)
+        {
+            try
+            {
+                var addr = new System.Net.Mail.MailAddress(email);
+                return addr.Address == email;
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
-  }
 }
