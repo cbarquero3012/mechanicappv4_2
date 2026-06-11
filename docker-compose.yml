@@ -1,7 +1,7 @@
 services:
   db:
      image: postgres:15
-     container_name: mechanic_db_container
+     container_name: mechanic_db_container1
      environment:
        POSTGRES_USER: ${POSTGRES_USER:-postgres}
        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-12345678}
@@ -25,12 +25,15 @@ services:
     build: 
       context: ./backend
       dockerfile: Dockerfile
-    container_name: mechanic_backend
+    container_name: mechanic_backend1
     environment:
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=${POSTGRES_DB:-mechanic_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-12345678};Minimum Pool Size=2;Maximum Pool Size=20;Timeout=30;Command Timeout=30
       - ConnectionStrings__ControlPlane=Host=db;Port=5432;Database=${POSTGRES_DB:-mechanic_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-12345678};Minimum Pool Size=1;Maximum Pool Size=10;Timeout=30;Command Timeout=30
       - ConnectionStrings__AdminConnection=Host=db;Port=5432;Database=postgres;Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-12345678};Timeout=30;Command Timeout=60
       - Jwt__Key=${JWT_KEY:-MechanicApp-SuperSecret-JWT-Key-2026-AtLeast32Bytes!}
+      - Email__ResendApiKey=${EMAIL_RESEND_API_KEY:-}
+      - Email__FromEmail=${EMAIL_FROM:-noreply@mechanicapp.com}
+      - Email__FrontendBaseUrl=${EMAIL_FRONTEND_URL:-https://www.mechanicapp.cloud}
       - ASPNETCORE_URLS=http://+:80
     volumes:
       - uploads_data:/app/wwwroot/uploads
@@ -45,16 +48,20 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: mechanic_frontend
+    container_name: mechanic_frontend1
     ports:
-      - "4201:80"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
     depends_on:
       - backend
     restart: unless-stopped
 
   backup:
     image: postgres:15
-    container_name: mechanic_db_backup
+    container_name: mechanic_db_backup1
     environment:
       PGHOST: db
       PGPORT: "5432"
