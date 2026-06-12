@@ -87,9 +87,6 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                 <option value="platinum">
                   Platinum - $99/{{ 'landing.month' | translate }}
                 </option>
-                <option value="golden">
-                  Golden (Enterprise) - {{ 'landing.contactUs' | translate }}
-                </option>
               </select>
             </div>
 
@@ -231,6 +228,10 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     }
     .form-group select {
       appearance: auto;
+    }
+    .form-group select option {
+      background: #1e293b;
+      color: #fff;
     }
     .btn {
       padding: 0.75rem 1.5rem;
