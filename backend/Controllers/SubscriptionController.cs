@@ -89,7 +89,12 @@ namespace MechanicApp.Server.Controllers
         {
             return Ok(new
             {
-                checkoutUrl = _stripe.PaymentLinkUrl
+                paymentLinks = new
+                {
+                    standard = _stripe.StandardPaymentLinkUrl,
+                    premium  = _stripe.PremiumPaymentLinkUrl,
+                    platinum = _stripe.PlatinumPaymentLinkUrl
+                }
             });
         }
 
@@ -429,14 +434,24 @@ namespace MechanicApp.Server.Controllers
 
         // ────────────────────────────────────────────────────────
         // Helper: Build Stripe payment link URL with prefilled data
+        // Selects the plan-specific link; falls back to the legacy
+        // PaymentLinkUrl when no plan-specific URL is configured.
         // ────────────────────────────────────────────────────────
         private string BuildPaymentUrl(string email, string planName)
         {
-            if (string.IsNullOrEmpty(_stripe.PaymentLinkUrl))
+            var baseUrl = planName switch
+            {
+                SubscriptionPlans.Standard => _stripe.StandardPaymentLinkUrl,
+                SubscriptionPlans.Premium  => _stripe.PremiumPaymentLinkUrl,
+                SubscriptionPlans.Platinum => _stripe.PlatinumPaymentLinkUrl,
+                _                          => _stripe.PaymentLinkUrl
+            };
+
+            if (string.IsNullOrEmpty(baseUrl))
                 return string.Empty;
 
-            var separator = _stripe.PaymentLinkUrl.Contains('?') ? "&" : "?";
-            return $"{_stripe.PaymentLinkUrl}{separator}prefilled_email={Uri.EscapeDataString(email)}";
+            var separator = baseUrl.Contains('?') ? "&" : "?";
+            return $"{baseUrl}{separator}prefilled_email={Uri.EscapeDataString(email)}";
         }
 
         /// <summary>Builds the absolute login URL for a tenant from the configured frontend base URL.</summary>
