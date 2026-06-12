@@ -108,21 +108,34 @@ import { markDirty } from '../../utils/mark-dirty';
 
       <!-- Actions -->
       <div class="status-actions">
-        @if (checkoutUrl) {
-          @if (status?.active) {
-            <button class="btn btn-primary" disabled>
-              &#128179; {{ 'subscription.subscribe' | translate }}
-            </button>
+        @if (status?.active) {
+          <button class="btn btn-primary" disabled>
+            &#128179; {{ 'subscription.subscribe' | translate }}
+          </button>
+        } @else {
+          @if (getCheckoutUrl('standard') || getCheckoutUrl('premium') || getCheckoutUrl('platinum')) {
+            <div class="plan-links">
+              @if (getCheckoutUrl('standard')) {
+                <a [href]="getCheckoutUrl('standard')" target="_blank" class="btn btn-plan">
+                  Standard — $49/mo
+                </a>
+              }
+              @if (getCheckoutUrl('premium')) {
+                <a [href]="getCheckoutUrl('premium')" target="_blank" class="btn btn-plan">
+                  Premium — $79/mo
+                </a>
+              }
+              @if (getCheckoutUrl('platinum')) {
+                <a [href]="getCheckoutUrl('platinum')" target="_blank" class="btn btn-plan">
+                  Platinum — $99/mo
+                </a>
+              }
+            </div>
           } @else {
-            <a [href]="checkoutUrl" target="_blank" class="btn btn-primary">
-              &#128179; {{ 'subscription.subscribe' | translate }}
-            </a>
+            <p class="hint">
+              {{ 'subscription.contactAdmin' | translate }}
+            </p>
           }
-        }
-        @if (!status?.active && !checkoutUrl) {
-          <p class="hint">
-            {{ 'subscription.contactAdmin' | translate }}
-          </p>
         }
       </div>
     </div>
@@ -248,21 +261,18 @@ import { markDirty } from '../../utils/mark-dirty';
           <h3>{{ 'subscription.stripeConfig' | translate }}</h3>
         </div>
         <div class="config-details">
-          <div class="detail-row">
-            <span class="label">{{
-              'subscription.checkoutUrl' | translate
-            }}</span>
-            <span class="value">
-              @if (config.checkoutUrl) {
-                <a [href]="config.checkoutUrl" target="_blank">{{
-                  config.checkoutUrl
-                }}</a>
-              }
-              @if (!config.checkoutUrl) {
-                <em>{{ 'subscription.notConfigured' | translate }}</em>
-              }
-            </span>
-          </div>
+          @for (plan of ['standard', 'premium', 'platinum']; track plan) {
+            <div class="detail-row">
+              <span class="label">{{ getPlanLabel(plan) }}</span>
+              <span class="value">
+                @if (getCheckoutUrl(plan)) {
+                  <a [href]="getCheckoutUrl(plan)" target="_blank">{{ getCheckoutUrl(plan) }}</a>
+                } @else {
+                  <em>{{ 'subscription.notConfigured' | translate }}</em>
+                }
+              </span>
+            </div>
+          }
           <div class="detail-row">
             <span class="label">{{
               'subscription.webhookUrl' | translate
@@ -586,6 +596,26 @@ import { markDirty } from '../../utils/mark-dirty';
         padding: 5px 14px;
         font-size: 0.85rem;
       }
+      .plan-links {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .btn-plan {
+        display: block;
+        background: #667eea;
+        color: #fff;
+        text-align: center;
+        padding: 8px 20px;
+        border-radius: 6px;
+        font-size: 0.95rem;
+        font-weight: 500;
+        text-decoration: none;
+        transition: background 0.15s;
+      }
+      .btn-plan:hover {
+        background: #5a6fd6;
+      }
 
       @media (max-width: 768px) {
         .status-details {
@@ -608,7 +638,6 @@ export class SubscriptionManageComponent implements OnInit {
   status: SubscriptionStatus | null = null;
   details: Subscription[] = [];
   config: SubscriptionConfig | null = null;
-  checkoutUrl = '';
   loading = false;
 
   // Computed
@@ -674,10 +703,7 @@ export class SubscriptionManageComponent implements OnInit {
       .getConfig()
       .pipe(takeUntilDestroyed(this.destroyRef), markDirty(this.cdr))
       .subscribe({
-        next: (c) => {
-          this.config = c;
-          this.checkoutUrl = c.checkoutUrl || '';
-        },
+        next: (c) => (this.config = c),
       });
   }
 
@@ -742,6 +768,11 @@ export class SubscriptionManageComponent implements OnInit {
     refunded: 'Refunded',
     none: 'None',
   };
+
+  getCheckoutUrl(plan: string): string {
+    if (!this.config?.paymentLinks) return '';
+    return (this.config.paymentLinks as Record<string, string>)[plan] ?? '';
+  }
 
   getPlanLabel(planName?: string): string {
     if (!planName) return '—';

@@ -4,7 +4,11 @@ import { Observable, tap, catchError, of } from 'rxjs';
 import { SubscriptionStatus, Subscription } from '../models/subscription';
 
 export interface SubscriptionConfig {
-  checkoutUrl: string;
+  paymentLinks: {
+    standard: string;
+    premium: string;
+    platinum: string;
+  };
 }
 
 @Injectable({

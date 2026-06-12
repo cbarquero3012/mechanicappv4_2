@@ -256,8 +256,16 @@ export class SubscriptionComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
   private cdr = inject(ChangeDetectorRef);
   status: SubscriptionStatus | null = null;
-  checkoutUrl = '';
+  private config: import('../../services/subscription.service').SubscriptionConfig | null = null;
   isAdmin = false;
+
+  get checkoutUrl(): string {
+    if (!this.config?.paymentLinks) return '';
+    const plan = this.status?.planName?.toLowerCase() ?? 'standard';
+    return (this.config.paymentLinks as Record<string, string>)[plan]
+      ?? this.config.paymentLinks.standard
+      ?? '';
+  }
 
   /** Read branding from signals */
   readonly appName = computed(() => this.appSettings.settings().appName);
@@ -298,7 +306,7 @@ export class SubscriptionComponent implements OnInit {
       .getConfig()
       .pipe(takeUntilDestroyed(this.destroyRef), markDirty(this.cdr))
       .subscribe({
-        next: (c) => (this.checkoutUrl = c.checkoutUrl || ''),
+        next: (c) => (this.config = c),
       });
   }
 
