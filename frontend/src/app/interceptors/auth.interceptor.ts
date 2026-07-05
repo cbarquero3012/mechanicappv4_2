@@ -10,10 +10,11 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const router = inject(Router);
 
   // Always attach tenant slug header if available
-  const tenantSlug = localStorage.getItem('tenant_slug');
+  const tenantSlug = localStorage.getItem('tenant_slug') || authService.tenantSlug;
   let modifiedReq = req;
 
   if (tenantSlug) {
+    localStorage.setItem('tenant_slug', tenantSlug);
     modifiedReq = req.clone({
       setHeaders: {
         'X-Tenant-Slug': tenantSlug,
@@ -39,6 +40,11 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   return next(modifiedReq).pipe(
     catchError((error: HttpErrorResponse) => {
       if (error.status === 401) {
+        if (error.error?.code === 'TENANT_REQUIRED') {
+          router.navigate(['/landing']);
+          return throwError(() => error);
+        }
+
         // Token expired or invalid — force logout
         authService.logout();
         const slug = localStorage.getItem('tenant_slug');
