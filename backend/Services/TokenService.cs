@@ -11,7 +11,7 @@ namespace MechanicApp.Server.Services
     /// <summary>
     /// Generates JWT authentication tokens using configured signing credentials.
     /// </summary>
-    public class TokenService(IOptions<JwtSettings> jwt) : ITokenService
+    public class TokenService(IOptions<JwtSettings> jwt, ITenantContext tenantContext) : ITokenService
     {
         private readonly JwtSettings _jwt = jwt.Value;
 
@@ -35,6 +35,9 @@ namespace MechanicApp.Server.Services
             };
             if (user.MechanicId.HasValue)
                 claims.Add(new Claim("mechanicId", user.MechanicId.Value.ToString()));
+
+            if (tenantContext.CurrentTenant is { Slug.Length: > 0 } tenant)
+                claims.Add(new Claim("tenant_slug", tenant.Slug));
 
             var token = new JwtSecurityToken(
                 issuer: _jwt.Issuer,
