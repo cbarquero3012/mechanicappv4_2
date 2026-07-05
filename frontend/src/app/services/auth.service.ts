@@ -32,6 +32,10 @@ export class AuthService {
     return localStorage.getItem(this.TOKEN_KEY);
   }
 
+  get tenantSlug(): string | null {
+    return this.getTokenClaim('tenant_slug');
+  }
+
   /** Extract the user role from the JWT token payload */
   get userRole(): string {
     return (
@@ -118,6 +122,10 @@ export class AuthService {
         tap((res) => {
           localStorage.setItem(this.TOKEN_KEY, res.token);
           localStorage.setItem(this.USER_KEY, res.username);
+          const tenantSlug = this.tenantSlug;
+          if (tenantSlug) {
+            localStorage.setItem('tenant_slug', tenantSlug);
+          }
           this.loggedIn.set(true);
         }),
         map(() => true),
