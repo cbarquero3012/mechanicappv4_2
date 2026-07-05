@@ -11,7 +11,8 @@ export const authGuard: CanActivateFn = (_route: ActivatedRouteSnapshot, state: 
   const firstSegment = state.url.split('/').filter(Boolean)[0];
   const slug =
     (firstSegment && !knownRoutes.includes(firstSegment) ? firstSegment : null) ||
-    localStorage.getItem('tenant_slug');
+    localStorage.getItem('tenant_slug') ||
+    authService.tenantSlug;
 
   if (slug) {
     localStorage.setItem('tenant_slug', slug);
