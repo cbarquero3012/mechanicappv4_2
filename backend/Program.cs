@@ -40,6 +40,10 @@ builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection(Email
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException("Configuration 'Jwt:Key' is required. Set it via environment variable Jwt__Key or appsettings.");
+if (string.IsNullOrWhiteSpace(jwtKey) || Encoding.UTF8.GetByteCount(jwtKey) < 32)
+{
+    throw new InvalidOperationException("Configuration 'Jwt:Key' must be at least 32 bytes. Set a strong value via environment variable Jwt__Key.");
+}
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
